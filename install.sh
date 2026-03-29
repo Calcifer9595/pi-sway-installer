@@ -323,12 +323,16 @@ install_fonts() {
 
 install_themes() {
     log "Installing GTK/Qt themes and icons..."
+    # FIX (Trixie): arc-theme has been dropped from Debian 13 repos.
+    # Use Adwaita-dark (always available) instead.
+    # Added qt6ct + adwaita-qt6 — Qt6 apps are common in Trixie and need their own theme engine.
     sudo apt-get install -y \
-        arc-theme \
         lxappearance \
         qt5ct \
+        qt6ct \
         qtwayland5 \
-        adwaita-qt
+        adwaita-qt \
+        adwaita-qt6
 
     # FIX: git.io URL shortener was shut down by GitHub in April 2022.
     # All git.io links 404. papirus-icon-theme IS in Debian Bookworm apt — just use it.
@@ -415,6 +419,79 @@ patch_for_productivity() {
 }
 
 ###############################################################################
+# GTK / Qt settings (Trixie — Adwaita-dark, no arc-theme)
+###############################################################################
+
+write_gtk_config() {
+    log "Writing GTK and Qt theme settings..."
+    mkdir -p ~/.config/gtk-3.0 ~/.config/gtk-4.0
+
+    cat > ~/.config/gtk-3.0/settings.ini << 'GTK3_EOF'
+[Settings]
+gtk-theme-name=Adwaita-dark
+gtk-icon-theme-name=Papirus-Dark
+gtk-font-name=JetBrainsMono Nerd Font 11
+gtk-cursor-theme-name=Adwaita
+gtk-cursor-theme-size=24
+gtk-button-images=0
+gtk-menu-images=0
+gtk-enable-event-sounds=0
+gtk-enable-input-feedback-sounds=0
+gtk-xft-antialias=1
+gtk-xft-hinting=1
+gtk-xft-hintstyle=hintfull
+gtk-xft-rgba=rgb
+gtk-application-prefer-dark-theme=1
+GTK3_EOF
+
+    cat > ~/.config/gtk-4.0/settings.ini << 'GTK4_EOF'
+[Settings]
+gtk-application-prefer-dark-theme=1
+gtk-icon-theme-name=Papirus-Dark
+gtk-font-name=JetBrainsMono Nerd Font 11
+gtk-cursor-theme-name=Adwaita
+gtk-cursor-theme-size=24
+GTK4_EOF
+
+    # GTK2 legacy (Thunar still reads this)
+    cat > ~/.gtkrc-2.0 << 'GTK2_EOF'
+gtk-theme-name="Adwaita-dark"
+gtk-icon-theme-name="Papirus-Dark"
+gtk-font-name="JetBrainsMono Nerd Font 11"
+gtk-cursor-theme-name="Adwaita"
+gtk-cursor-theme-size=24
+gtk-button-images=0
+gtk-menu-images=0
+gtk-enable-event-sounds=0
+gtk-enable-input-feedback-sounds=0
+GTK2_EOF
+
+    # qt5ct config — Adwaita-dark style, matches GTK
+    mkdir -p ~/.config/qt5ct
+    cat > ~/.config/qt5ct/qt5ct.conf << 'QT5CT_EOF'
+[Appearance]
+style=adwaita-dark
+color_scheme_path=
+custom_palette=false
+icon_theme=Papirus-Dark
+standard_dialogs=default
+QT5CT_EOF
+
+    # qt6ct config — same settings, adwaita-qt6 package provides the style
+    mkdir -p ~/.config/qt6ct
+    cat > ~/.config/qt6ct/qt6ct.conf << 'QT6CT_EOF'
+[Appearance]
+style=adwaita-dark
+color_scheme_path=
+custom_palette=false
+icon_theme=Papirus-Dark
+standard_dialogs=default
+QT6CT_EOF
+
+    success "GTK and Qt theme settings written"
+}
+
+###############################################################################
 # Fish shell config (written directly — no OMF required)
 ###############################################################################
 
@@ -433,6 +510,8 @@ set -x BROWSER  firefox-esr
 set -x QT_QPA_PLATFORMTHEME qt5ct
 set -x QT_QPA_PLATFORM      wayland
 set -x MOZ_ENABLE_WAYLAND   1
+# Trixie: Qt6 apps use qt6ct; adwaita-qt6 provides the Adwaita-dark style
+set -x QT6CT_STYLE          adwaita-dark
 
 fish_add_path ~/.local/bin /usr/local/bin
 
@@ -460,6 +539,7 @@ export MOZ_ENABLE_WAYLAND=1
 export XDG_SESSION_TYPE=wayland
 export QT_QPA_PLATFORM="wayland;xcb"
 export QT_QPA_PLATFORMTHEME=qt5ct
+export QT6CT_STYLE=adwaita-dark
 export SDL_VIDEODRIVER=wayland
 export _JAVA_AWT_WM_NONREPARENTING=1
 EOF'
@@ -503,7 +583,7 @@ ${BLUE}Installed:${NC}
   ✓ PipeWire audio (Bookworm-native, no PA conflict)
   ✓ Dunst only (no mako conflict)
   ✓ Thunar + Ranger (no GNOME baggage)
-  ✓ Arc-Dark GTK + Papirus-Dark icons + qt5ct
+  ✓ Adwaita-dark GTK + Papirus-Dark icons + qt5ct/qt6ct (Trixie)
   ✓ JetBrains Mono Nerd Font
   ✓ Firefox ESR, Neovim, MPV, MPD/ncmpcpp, Zathura
   ✓ Productivity patches: 0 gaps, opaque everywhere
@@ -541,7 +621,7 @@ ${BLUE}║      Sway OS Installer — Raspberry Pi 5 (Productivity)       ║${N
 ${BLUE}╚═══════════════════════════════════════════════════════════════╝${NC}
 
   Wayland-native · PipeWire · No gaps · No transparency
-  greetd + tuigreet · Arc-Dark · Catppuccin Mocha (Kitty/Waybar)
+  greetd + tuigreet · Adwaita-dark · Catppuccin Mocha (Kitty/Waybar)
 
 EOF
 
@@ -573,6 +653,7 @@ EOF
 
     clone_and_copy_dotfiles
     patch_for_productivity
+    write_gtk_config
     configure_fish
 
     setup_environment
